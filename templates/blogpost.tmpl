@@ -6,6 +6,9 @@
 <TMPL_IF ATOMURL>
 <a class="feedbutton" type="application/atom+xml" rel="alternate" title="<TMPL_VAR ATOMDESC>" href="<TMPL_VAR ATOMURL>">Atom</a>
 </TMPL_IF>
+<TMPL_IF JSONFEEDURL>
+<a class="feedbutton" type="application/json" rel="alternate" title="<TMPL_VAR JSONFEEDESC>" href="<TMPL_VAR JSONFEEDURL>">JSON Feed</a>
+</TMPL_IF>
 <input type="hidden" name="do" value="blog" />
 <input type="hidden" name="from" value="<TMPL_VAR ROOTPAGE>" />
 <input type="hidden" name="subpage" value="1" />

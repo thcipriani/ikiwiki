@@ -36,8 +36,10 @@ sub getopt () {
 	GetOptions(
 		"rss!" => \$config{rss},
 		"atom!" => \$config{atom},
+		"jsonfeed!" => \$config{jsonfeed},
 		"allowrss!" => \$config{allowrss},
 		"allowatom!" => \$config{allowatom},
+		"allowjsonfeed!" => \$config{allowjsonfeed},
 		"pingurl=s" => sub {
 			push @{$config{pingurl}}, $_[1];
 		},      
@@ -65,6 +67,13 @@ sub getsetup () {
 			safe => 1,
 			rebuild => 1,
 		},
+		jsonfeed => {
+			type => "boolean",
+			example => 0,
+			description => "enable jsonfeed feeds by default?",
+			safe => 1,
+			rebuild => 1,
+		},
 		allowrss => {
 			type => "boolean",
 			example => 0,
@@ -79,6 +88,13 @@ sub getsetup () {
 			safe => 1,
 			rebuild => 1,
 		},
+		allowjsonfeed => {
+			type => "boolean",
+			example => 0,
+			description => "allow jsonfeed feeds to be used?",
+			safe => 1,
+			rebuild => 1,
+		},
 		pingurl => {
 			type => "string",
 			example => "http://rpc.technorati.com/rpc/ping",
@@ -89,14 +105,17 @@ sub getsetup () {
 }
 
 sub checkconfig () {
-	if (($config{rss} || $config{atom}) && ! length $config{url}) {
-		error(gettext("Must specify url to wiki with --url when using --rss or --atom"));
+	if (($config{rss} || $config{atom} || $config{jsonfeed}) && ! length $config{url}) {
+		error(gettext("Must specify url to wiki with --url when using --rss, --atom, or --jsonfeed"));
 	}
 	if ($config{rss}) {
 		push @{$config{wiki_file_prune_regexps}}, qr/\.rss$/;
 	}
 	if ($config{atom}) {
 		push @{$config{wiki_file_prune_regexps}}, qr/\.atom$/;
+	}
+	if ($config{jsonfeed}) {
+		push @{$config{wiki_file_prune_regexps}}, qr/\.json$/;
 	}
 	if (! exists $config{pingurl}) {
 		$config{pingurl}=[];
@@ -180,6 +199,9 @@ sub preprocess_inline (@) {
 	my $archive=yesno($params{archive});
 	my $rss=(($config{rss} || $config{allowrss}) && exists $params{rss}) ? yesno($params{rss}) : $config{rss};
 	my $atom=(($config{atom} || $config{allowatom}) && exists $params{atom}) ? yesno($params{atom}) : $config{atom};
+	my $jsonfeed=(($config{jsonfeed} || $config{allowjsonfeed}) && exists $params{jsonfeed})
+		? yesno($params{jsonfeed})
+		: $config{jsonfeed};
 	my $quick=exists $params{quick} ? yesno($params{quick}) : 0;
 	my $feeds=exists $params{feeds} ? yesno($params{feeds}) : !$quick && ! $raw;
 	my $emptyfeeds=exists $params{emptyfeeds} ? yesno($params{emptyfeeds}) : 1;
@@ -330,8 +352,9 @@ sub preprocess_inline (@) {
 		}
 	}
 
-	my ($rssurl, $atomurl, $rssdesc, $atomdesc);
+	my ($rssurl, $atomurl, $jsonfeedurl, $rssdesc, $atomdesc, $jsonfeeddesc, $jsonfeedp);
 	if ($feeds) {
+		$jsonfeedp = $feedbase . "json" . $feednum;
 		if ($rss) {
 			$rssurl=abs2rel($feedbase."rss".$feednum, dirname(htmlpage($params{destpage})));
 			$rssdesc = sprintf(gettext("%s (RSS feed)"), $desc);
@@ -339,6 +362,10 @@ sub preprocess_inline (@) {
 		if ($atom) {
 			$atomurl=abs2rel($feedbase."atom".$feednum, dirname(htmlpage($params{destpage})));
 			$atomdesc = sprintf(gettext("%s (Atom feed)"), $desc);
+		}
+		if ($jsonfeed) {
+			$jsonfeedurl=abs2rel($jsonfeedp, dirname(htmlpage($params{destpage})));
+			$jsonfeeddesc = sprintf(gettext("%s (jsonfeed)"), $desc);
 		}
 	}
 
@@ -363,6 +390,10 @@ sub preprocess_inline (@) {
 			if ($atom) {
 				$formtemplate->param(atomurl => $atomurl);
 				$formtemplate->param(atomdesc => $atomdesc);
+			}
+			if ($jsonfeed) {
+				$formtemplate->param(jsonfeedurl => $jsonfeedurl);
+				$formtemplate->param(jsonfeeddesc => $jsonfeeddesc);
 			}
 		}
 		if (exists $params{postformtext}) {
@@ -393,6 +424,10 @@ sub preprocess_inline (@) {
 		if ($atom) {
 			$linktemplate->param(atomurl => $atomurl);
 			$linktemplate->param(atomdesc => $atomdesc);
+		}
+		if ($jsonfeed) {
+			$linktemplate->param(jsonfeedurl => $jsonfeedurl);
+			$linktemplate->param(jsonfeeddesc => $jsonfeeddesc);
 		}
 		if (exists $params{id}) {
 			$linktemplate->param(id => $params{id});
@@ -487,6 +522,7 @@ sub preprocess_inline (@) {
 	}
 	
 	if ($feeds && ($emptyfeeds || @feedlist)) {
+		eval q{use HTML::Entities};
 		if ($rss) {
 			my $rssp=$feedbase."rss".$feednum;
 			will_render($params{destpage}, $rssp);
@@ -508,6 +544,19 @@ sub preprocess_inline (@) {
 				$feedlinks{$params{destpage}}.=qq{<link rel="alternate" type="application/atom+xml" title="$atomdesc" href="$atomurl" />};
 			}
 		}
+		if ($jsonfeed) {
+			will_render($params{destpage}, $jsonfeedp);
+			if (! $params{preview}) {
+				writefile($jsonfeedp, $config{destdir},
+					genfeed("jsonfeed", $config{url} . "/" . $jsonfeedp,
+						$title, $desc, $params{guid}, $params{page}, @feedlist));
+				$toping{$params{destpage}}=1 unless $config{rebuild};
+				my $safejsonfeeddesc = HTML::Entities::encode_entities($jsonfeeddesc);
+				my $safejsonfeedurl = HTML::Entities::encode_entities($jsonfeedurl);;
+				$feedlinks{$params{destpage}}.=qq{<link rel="alternate" type="application/json" title="$safejsonfeeddesc" href="$safejsonfeedurl" />};
+			}
+		}
+
 	}
 	
 	clear_inline_content_cache();
@@ -673,7 +722,9 @@ sub genfeed ($$$$$@) {
 	my $itemtemplate=template_depends($feedtype."item.tmpl", $page, blind_cache => 1);
 	my $content="";
 	my $lasttime = 0;
+	my $count = 0;
 	foreach my $p (@pages) {
+		$count++;
 		my $u=URI->new(encode_utf8(urlto($p, "", 1)));
 		my $pcontent = absolute_urls(get_inline_content($p, $page), $url);
 		my $fancy_enclosure_seen = 0;
@@ -686,6 +737,7 @@ sub genfeed ($$$$$@) {
 			mdate_822 => date_822($pagemtime{$p}),
 			cdate_3339 => date_3339($pagectime{$p}),
 			mdate_3339 => date_3339($pagemtime{$p}),
+			lastpage => $count == scalar @pages,
 		);
 
 		if (exists $pagestate{$p}) {

@@ -77,6 +77,9 @@ Here are some less often needed parameters:
 * `atom` - controls generation of an atom feed. If the wiki is configured to
   generate atom feeds by default, set to "no" to disable. If the wiki is
   configured to `allowatom`, set to "yes" to enable.
+* `jsonfeed` - controls generation of an JSON Feed feed. If the wiki is
+  configured to generate JSON Feed feeds by default, set to "no" to disable.
+  If the wiki is configured to `allowjsonfeed`, set to "yes" to enable.
 * `feeds` - controls generation of all types of feeds. Set to "no" to
   disable generating any feeds.
 * `emptyfeeds` - Set to "no" to disable generation of empty feeds.

@@ -205,6 +205,17 @@ also be configured using a setup file.
   generating Atom feeds, but setting `atom=yes` in the inline directive can
   override this default and generate a feed.
 
+* --jsonfeed, --nojsonfeed
+
+  If jsonfeed is set, ikiwiki will default to generating JSON Feed feeds for
+  pages that inline a [[blog]].
+
+* --allowjsonfeed
+
+  If allowjsonfeed is set, and rss is not set, ikiwiki will not default to
+  generating JSON Feed feeds, but setting `jsonfeed=yes` in the inline
+  directive can override this default and generate a feed.
+
 * --pingurl URL
 
   Set this to the URL of an XML-RPC service to ping when an RSS feed is
